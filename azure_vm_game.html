@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Azure VM Builder Challenge</title>
+<script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+<style>
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes popIn{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@keyframes pulseRing{0%,100%{box-shadow:0 0 0 0 rgba(0,120,212,.5)}50%{box-shadow:0 0 0 8px rgba(0,120,212,0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes confettiFall{0%{transform:translateY(-40px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+@keyframes slideInR{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+
+.fade-up{animation:fadeUp .35s ease both}
+.pop-in{animation:popIn .4s ease both}
+.shake{animation:shake .3s ease}
+.blink{animation:blink 1s step-start infinite}
+
+.comp-card{
+  cursor:pointer;user-select:none;transition:all .18s;
+  border:2px solid var(--border);border-radius:12px;
+  background:var(--card);padding:9px 12px;
+  display:flex;align-items:center;gap:10px;position:relative;
+}
+.comp-card:hover{transform:translateY(-1px);border-color:rgba(0,120,212,.55);}
+.comp-card.selected{
+  border-color:#0078d4!important;background:rgba(0,120,212,.1)!important;
+  box-shadow:0 0 0 3px rgba(0,120,212,.22),0 0 16px rgba(0,120,212,.18);
+  transform:translateY(-2px);
+}
+.comp-card.used{opacity:.28;pointer-events:none;cursor:not-allowed;}
+
+.drop-slot{
+  border:2px dashed rgba(0,120,212,.3);border-radius:10px;
+  padding:8px 10px;min-height:54px;background:rgba(0,120,212,.03);
+  transition:all .2s;cursor:pointer;
+  display:flex;align-items:center;gap:8px;position:relative;
+}
+.drop-slot:hover{border-color:rgba(0,120,212,.6);background:rgba(0,120,212,.07);}
+.drop-slot.slot-active{
+  border-color:#0078d4!important;background:rgba(0,120,212,.12)!important;
+  animation:pulseRing 1.3s ease infinite;
+}
+.drop-slot.slot-filled{border-style:solid;border-color:#0078d4;background:rgba(0,120,212,.06);}
+
+.remove-x{
+  position:absolute;top:-7px;right:-7px;width:20px;height:20px;
+  border-radius:50%;background:#d83b01;color:#fff;
+  font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:10;border:2px solid var(--card);line-height:1;
+}
+
+.star-lit{color:#fbbf24;font-size:.95rem;}
+.star-dim{color:rgba(251,191,36,.18);font-size:.95rem;}
+
+.pill{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 9px;border-radius:999px;font-size:.68rem;font-weight:600;
+}
+.cat-tab{
+  cursor:pointer;padding:5px 10px;border-radius:8px;
+  font-size:.72rem;font-weight:600;transition:all .15s;
+  border:1.5px solid var(--border);white-space:nowrap;flex-shrink:0;
+}
+.cat-tab.active{background:#0078d4;color:#fff;border-color:#0078d4;}
+.cat-tab:hover:not(.active){border-color:#0078d4;color:#0078d4;}
+
+.panel{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;display:flex;flex-direction:column;overflow:hidden;
+}
+.p-head{
+  padding:9px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.p-body{flex:1;overflow-y:auto;padding:10px;}
+
+.sel-strip{
+  background:rgba(0,120,212,.1);border:1.5px solid #0078d4;
+  border-radius:10px;padding:7px 11px;margin:0 10px 8px;
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+
+.az-hdr{background:linear-gradient(90deg,#003e92,#0078d4 60%,#1498dd);}
+
+.confetti-p{
+  position:fixed;border-radius:2px;pointer-events:none;z-index:9999;
+  animation:confettiFall linear forwards;
+}
+.ach-pop{
+  position:fixed;top:58px;right:14px;z-index:9999;
+  background:linear-gradient(135deg,#1a1a2e,#16213e);
+  border:1.5px solid #fbbf24;border-radius:12px;
+  padding:12px 16px;min-width:230px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  animation:slideInR .35s ease;
+}
+
+.vm-inp{
+  background:var(--background);border:2px solid var(--border);
+  border-radius:10px;padding:7px 12px;font-size:.83rem;
+  color:var(--foreground);outline:none;transition:border-color .2s;width:100%;
+}
+.vm-inp:focus{border-color:#0078d4;}
+.vm-inp::placeholder{color:var(--placeholder,#888);}
+
+.meter{height:7px;border-radius:4px;background:rgba(0,0,0,.12);overflow:hidden;}
+.mfill{height:100%;border-radius:4px;transition:width .55s ease;}
+
+.terminal{
+  font-family:'Courier New',monospace;font-size:.72rem;
+  background:#0d1117;color:#58a6ff;border-radius:8px;
+  padding:10px;height:155px;overflow-y:auto;border:1px solid #30363d;
+}
+.t-ok{color:#3fb950;} .t-warn{color:#d29922;}
+.t-head{color:#f0f6ff;font-weight:700;} .t-dim{color:#8b949e;}
+
+.exp-box{
+  border-radius:9px;padding:9px 12px;margin-top:6px;border:1px solid;
+  font-size:.72rem;line-height:1.58;
+}
+.exp-ok   {border-color:rgba(16,124,16,.4); background:rgba(16,124,16,.07);}
+.exp-part {border-color:rgba(255,140,0,.4); background:rgba(255,140,0,.07);}
+.exp-bad  {border-color:rgba(216,59,1,.4);  background:rgba(216,59,1,.07);}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:rgba(120,120,200,.3);border-radius:3px;}
+body{background:var(--background);margin:0;padding:0;}
+</style>
+</head>
+<body class="text-[var(--foreground)] antialiased">
+
+<!-- HEADER -->
+<div class="az-hdr text-white px-4 py-2 flex items-center gap-2 sticky top-0 z-50 shadow-lg" style="min-height:44px">
+  <svg width="22" height="22" viewBox="0 0 96 96" fill="none"><path d="M54.9 6.7L27.5 51.5l27.4 7.8L96 89.3H58.9L32.1 45.2 6.7 89.3H0l38.6-66.4L54.9 6.7z" fill="white"/></svg>
+  <span class="font-semibold text-sm hidden sm:block">Azure VM Builder Challenge</span>
+  <div class="flex-1"></div>
+  <div id="hXP"  class="pill" style="background:rgba(251,191,36,.2);color:#fbbf24;border:1px solid rgba(251,191,36,.3)">⚡ 0 XP</div>
+  <div id="hLvl" class="pill ml-1" style="background:rgba(139,92,246,.2);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)">🏅 Lv 1</div>
+  <div id="hQ"   class="pill ml-1" style="background:rgba(255,255,255,.15);color:#fff">Q 1/6</div>
+</div>
+
+<div id="root" style="height:calc(100vh - 44px);overflow:hidden;display:flex;flex-direction:column;"></div>
+<div id="achBox"></div>
+<div id="xpBox"></div>
+<div id="cfBox"></div>
+
+<script>
+'use strict';
+
+/* ── DATA ──────────────────────────────────── */
+const COMPS = {
+  cpu:[
+    {id:'cpu_b2s',  ico:'🔵',name:'B2s (2 vCPU)',    sub:'Burstable · Budget',        tip:'Great for light / intermittent workloads'},
+    {id:'cpu_d4sv3',ico:'🟢',name:'D4s v3 (4 vCPU)', sub:'General Purpose',           tip:'Balanced CPU/memory for most workloads'},
+    {id:'cpu_f8sv2',ico:'🟡',name:'F8s v2 (8 vCPU)', sub:'Compute Optimised',         tip:'High CPU ratio — HPC, analytics, simulations'},
+    {id:'cpu_nc6',  ico:'🔴',name:'NC6s v3 (GPU)',    sub:'GPU Series · Tesla V100',   tip:'NVIDIA V100 — 3D rendering, ML training'},
+    {id:'cpu_e16',  ico:'🟣',name:'E16s v3 (16 vCPU)',sub:'Memory Optimised',          tip:'Large RAM-to-CPU ratio — databases, big-data'},
+    {id:'cpu_nd96', ico:'⚫',name:'ND96asr A100',     sub:'8x A100 GPU Series',        tip:'Top-tier for large-scale AI/ML training'},
+  ],
+  ram:[
+    {id:'ram_4',  ico:'🧩',name:'4 GB RAM',  sub:'Light',   tip:'Enough for static sites and very light apps'},
+    {id:'ram_16', ico:'🧩',name:'16 GB RAM', sub:'Standard',tip:'Good for web servers, mid-tier workloads'},
+    {id:'ram_32', ico:'🧩',name:'32 GB RAM', sub:'Enhanced',tip:'ML inference, moderate data processing'},
+    {id:'ram_64', ico:'🧩',name:'64 GB RAM', sub:'High',    tip:'Large dataset processing, simulations'},
+    {id:'ram_112',ico:'🧩',name:'112 GB RAM',sub:'Ultra',   tip:'Required for large GPU / ML model training'},
+    {id:'ram_256',ico:'🧩',name:'256 GB RAM',sub:'Extreme', tip:'Massive in-memory DBs, A100 workloads'},
+  ],
+  storage:[
+    {id:'st_hdd', ico:'💽',name:'Standard HDD', sub:'500 IOPS · Cheapest',   tip:'Archival, rarely-accessed data'},
+    {id:'st_ssds',ico:'💿',name:'Standard SSD', sub:'3 000 IOPS · Balanced', tip:'Good default for most VMs'},
+    {id:'st_ssdp',ico:'🔵',name:'Premium SSD',  sub:'16 000 IOPS · Fast',    tip:'Production DBs, gaming assets'},
+    {id:'st_ultra',ico:'⚡',name:'Ultra Disk',   sub:'160 000 IOPS · Max',   tip:'Extreme I/O for scientific workloads'},
+  ],
+  gpu:[
+    {id:'gpu_none',ico:'❌',name:'No GPU',      sub:'CPU only',               tip:'Most web workloads do not need a GPU'},
+    {id:'gpu_t4',  ico:'🎮',name:'NVIDIA T4',   sub:'16 GB GDDR6 · Inference',tip:'Good for ML inference and light rendering'},
+    {id:'gpu_v100',ico:'🚀',name:'NVIDIA V100', sub:'32 GB HBM2 · Training',  tip:'Top-tier for deep learning, 3D rendering'},
+    {id:'gpu_a100',ico:'💎',name:'NVIDIA A100', sub:'80 GB HBM2e · Research', tip:'Cutting-edge HPC and large model training'},
+  ],
+  os:[
+    {id:'os_ubuntu',ico:'🐧',name:'Ubuntu 22.04 LTS',  sub:'Linux · Canonical',   tip:'Most popular Linux for Azure VMs'},
+    {id:'os_win22', ico:'🪟',name:'Windows Server 2022',sub:'Windows · Microsoft', tip:'Required for DirectX / GPU rendering apps'},
+    {id:'os_debian',ico:'🌀',name:'Debian 11',          sub:'Linux · Minimal',     tip:'Lean Linux, great for low-cost servers'},
+    {id:'os_rhel',  ico:'🎩',name:'Red Hat Enterprise', sub:'Linux · RHEL 9',      tip:'Enterprise certifications and long-term support'},
+  ],
+  sg:[
+    {id:'sg_web',   ico:'🌐',name:'Web SG',        sub:'80 + 443 open',         tip:'Open HTTP/HTTPS — ideal for web servers'},
+    {id:'sg_ssh',   ico:'🔐',name:'SSH Only',      sub:'Port 22 restricted',    tip:'Tightest security for headless Linux servers'},
+    {id:'sg_rdp',   ico:'🖥️',name:'RDP + Web',    sub:'3389, 80, 443',         tip:'Windows Server remote desktop access'},
+    {id:'sg_strict',ico:'🛡️',name:'Strict / None',sub:'No public inbound',     tip:'VPN / Bastion access only — max security'},
+    {id:'sg_db',    ico:'🗄️',name:'DB Ports SG',  sub:'5432, 1433, 3306',      tip:'SQL/Postgres/MySQL ports for DB VMs'},
+  ],
+  network:[
+    {id:'net_basic',ico:'📡',name:'Basic (1 Gbps)',    sub:'Standard NIC · Free',  tip:'Plenty for static websites'},
+    {id:'net_std',  ico:'📡',name:'Standard (10 Gbps)',sub:'Accelerated NIC',      tip:'Low latency for compute workloads'},
+    {id:'net_prem', ico:'📡',name:'Premium (25 Gbps)', sub:'SR-IOV + CDN',         tip:'High-throughput GPU / HPC workloads'},
+  ],
+};
+
+const SLOTS = [
+  {key:'cpu',    ico:'⚙️', label:'Processor (CPU)'},
+  {key:'ram',    ico:'🧠', label:'Memory (RAM)'},
+  {key:'storage',ico:'💽', label:'Storage Disk'},
+  {key:'gpu',    ico:'🎮', label:'GPU / Graphics'},
+  {key:'os',     ico:'💿', label:'Operating System'},
+  {key:'sg',     ico:'🛡️',label:'Security Group'},
+  {key:'network',ico:'📡', label:'Network Speed'},
+];
+
+// Helper: build explanation object per slot
+// partialPS (optional 7th arg): {compId: starCount} — overrides ps for that specific item
+function E(id, why, wrongWhy, partial, ps, partialWhy, partialPS) {
+  return {id, why, wrongWhy, partial: partial||[], ps: ps||0, partialWhy: partialWhy||{}, partialPS: partialPS||{}};
+}
+
+const SCENARIOS = [
+  {
+    id:'graphics', emoji:'🎨', color:'#d83b01',
+    title:'High-End Graphics & Rendering Studio',
+    client:'VFX Productions Inc.',
+    brief:'A VFX studio needs a VM for 4K film rendering, Blender simulations, and real-time ray-tracing. Budget is no concern — peak performance is everything.',
+    reqs:['🎬 4K film rendering & ray-tracing','🎮 Top-tier GPU required','⚡ Fastest disk I/O','🪟 Windows Server (DirectX apps)','🖥️ Remote Desktop (RDP) access'],
+    ideal:{
+      cpu: E('cpu_nc6',
+        'NC6s v3 is built around the NVIDIA V100 GPU. Its 6 vCPUs efficiently feed the GPU render pipeline. Azure designed this series specifically for GPU-bound rendering.',
+        'A standard CPU VM cannot use CUDA or DirectX ray-tracing hardware. Rendering runs in software mode — a 10-minute GPU job becomes hours of CPU work.',
+        ['cpu_f8sv2','cpu_nd96'],1,
+        {'cpu_f8sv2':'F8s v2 has great CPU throughput but no GPU. Software rendering on CPU is 50-200x slower — production deadlines become impossible.',
+         'cpu_nd96':'ND96asr with A100 GPUs is technically even more powerful for rendering, but it costs 10-15x more than NC6s v3 and the V100 already handles 4K rendering perfectly. Massive overkill.'},
+        {'cpu_nd96':2}),
+      ram: E('ram_112',
+        '112 GB holds large texture atlases, geometry buffers, and frame buffers entirely in memory. Without it, the OS pages to disk mid-render, destroying performance.',
+        'Insufficient RAM causes the OS to page GPU-shared memory to disk mid-render. This causes frame drops, render artifacts, and crashes on complex 4K scenes.',
+        ['ram_64','ram_256'],1,
+        {'ram_64':'64 GB works for smaller scenes but complex 4K meshes with many lights will exceed it, causing disk swapping that slows rendering 3-10x.',
+         'ram_256':'256 GB is more than enough — the scene buffers fit easily. However it costs roughly 2x more than 112 GB with zero rendering speed improvement. Works, but wastes budget.'},
+        {'ram_256':2}),
+      storage: E('st_ultra',
+        'Ultra Disk (160,000 IOPS) lets the VM stream uncompressed 4K textures without bottlenecking the GPU pipeline. Textures load instantly, keeping the GPU fully fed.',
+        'Standard HDD (500 IOPS) creates a massive bottleneck. The GPU sits idle waiting for textures — expensive GPU time is wasted entirely.',
+        ['st_ssdp'],2,{'st_ssdp':'Premium SSD (16k IOPS) will throttle on heavy simultaneous reads of multi-GB texture files, causing GPU stalls.'}),
+      gpu: E('gpu_v100',
+        'NVIDIA V100 (32 GB HBM2) delivers 14 TFLOPS and fully supports CUDA, OptiX, and DirectX Ray Tracing — exactly what professional rendering pipelines require.',
+        'Without a GPU there is no hardware-accelerated ray tracing. The VM falls back to CPU rendering, which is 100x slower — commercial film deadlines become impossible.',
+        ['gpu_a100','gpu_t4'],2,{'gpu_a100':'A100 is designed for ML training, not rendering. Overkill and far more expensive with no practical rendering speed gain over V100.','gpu_t4':'T4 has only 16 GB VRAM. Large 4K scenes exceed VRAM and fall back to CPU rendering, losing the GPU advantage entirely.'}),
+      os: E('os_win22',
+        'Windows Server 2022 is the only option that supports DirectX 12, CUDA drivers for Windows, and professional rendering software like Autodesk and Cinema 4D natively.',
+        'Linux cannot run DirectX-dependent rendering software. Most commercial VFX tools require Windows. Forcing Linux means reimplementing the entire rendering workflow.',
+        [],0,{}),
+      sg: E('sg_rdp',
+        'RDP (port 3389) gives artists a full graphical remote desktop to interact with rendering software visually — exactly what a studio artist needs.',
+        'SSH-only or no-inbound blocks the graphical remote desktop. Artists cannot interact with rendering software through a terminal — they need a full GUI desktop.',
+        [],0,{}),
+      network: E('net_prem',
+        '25 Gbps with SR-IOV minimises latency for transferring large EXR/RAW files and allows CDN offloading of rendered output to clients worldwide.',
+        '1 Gbps throttles file transfers to 125 MB/s. A single 4K EXR frame is ~200 MB — uploading a 100-frame sequence takes many minutes per review iteration.',
+        ['net_std'],1,{'net_std':'10 Gbps works but uploading multi-GB render outputs takes 2-3x longer, slowing the artist review-and-revise cycle significantly.'}),
+    },
+  },
+  {
+    id:'hpc', emoji:'🔬', color:'#5c2d91',
+    title:'High-Performance Scientific Computing',
+    client:'BioGenomics Research Lab',
+    brief:'A genomics lab runs CPU-intensive bioinformatics pipelines, protein-folding simulations, and massive batch jobs in Python/R on Linux. Max CPU + RAM + fast storage. No GPU needed.',
+    reqs:['🧬 Genomics pipeline batch processing','💻 Maximum CPU cores','🧠 Large in-memory datasets','⚡ Ultra-fast disk I/O','🐧 Linux only (Python/R)','🔐 SSH access, no public web'],
+    ideal:{
+      cpu: E('cpu_f8sv2',
+        'F8s v2 delivers the highest raw CPU throughput in the compute-optimised family. Genomics tools like BLAST, BWA, and STAR are CPU-bound — clock speed and core count directly reduce pipeline runtime.',
+        'Burstable B-series CPUs run at full speed briefly then throttle to 20%. A genomics pipeline running for hours at throttled speed would take days instead of hours — completely unacceptable for research.',
+        ['cpu_e16'],2,{'cpu_e16':'E16s v3 is tuned for memory-heavy queries (databases), not raw compute speed. For CPU-bound genomics, F8s v2 finishes jobs faster per core.'}),
+      ram: E('ram_64',
+        '64 GB prevents the reference genome index (30-60 GB) from paging to disk. With it all in RAM, tools like STAR align reads without ever hitting disk — pipeline speed increases dramatically.',
+        'With only 4-16 GB RAM, the reference genome index gets paged to disk constantly. Tools like STAR run 10-20x slower and may crash with out-of-memory errors mid-pipeline.',
+        ['ram_112','ram_256'],2,
+        {'ram_112':'112 GB is overkill — it costs more and provides no measurable speed gain for most genomics pipelines beyond 64 GB.',
+         'ram_256':'256 GB is extreme over-provisioning for genomics. The pipeline never uses more than 60-70 GB. You are paying for 190 GB of completely idle RAM — roughly 3x the cost for zero benefit.'},
+        {'ram_256':1}),
+      storage: E('st_ultra',
+        'Genomics pipelines process FASTQ files that are tens of gigabytes each. Ultra Disk (160k IOPS) ensures the CPU always has data ready — eliminating the disk bottleneck in I/O-heavy alignment stages.',
+        'Standard HDD (500 IOPS) strangles a genomics pipeline immediately. The aligner spends 80% of time waiting for disk reads instead of computing — total runtime multiplies by 5-10x.',
+        ['st_ssdp'],1,{'st_ssdp':'Premium SSD works but heavy parallel I/O from multi-threaded aligners will occasionally saturate its 16k IOPS queue, adding wait times.'}),
+      gpu: E('gpu_none',
+        'Python/R genomics tools (GATK, BWA, STAR, Bioconductor) are purely CPU-and-memory-based. Adding a GPU wastes up to $3/hour and adds driver complexity with zero performance benefit.',
+        'Provisioning a GPU VM for CPU-only workloads wastes thousands of dollars per month. You pay for idle GPU hardware the genomics software cannot use. Always match hardware to software.',
+        [],0,{}),
+      os: E('os_ubuntu',
+        'Ubuntu 22.04 LTS has the broadest bioinformatics package repository, the most community tutorials, first-party Azure storage driver support, and conda packages with pre-built binaries.',
+        'Windows cannot natively run Linux bioinformatics pipelines. WSL2 workarounds add overhead and are unsupported for production HPC use — the entire toolchain would need rewriting.',
+        ['os_debian','os_rhel'],2,{'os_debian':'Debian works but some bioinformatics conda packages have fewer pre-built binaries, requiring source compilation.','os_rhel':'RHEL adds per-VM licensing cost and some open-source tools are not packaged for it, requiring manual setup.'}),
+      sg: E('sg_ssh',
+        'SSH-only means only authenticated users can reach the VM. No web service runs here — minimising the attack surface is essential for a research VM holding sensitive genomic data.',
+        'Opening HTTP/RDP on a research VM with no web service creates unnecessary entry points. Any misconfigured service becomes an attacker path to sensitive patient genomic data.',
+        [],0,{}),
+      network: E('net_std',
+        '10 Gbps with SR-IOV gives consistent low-latency data transfer for downloading reference databases and uploading results — more than sufficient for single-node genomics batch jobs.',
+        '1 Gbps Basic throttles downloads of large reference databases (NCBI RefSeq is 500+ GB) to 125 MB/s. What should take minutes takes hours, delaying pipeline starts.',
+        ['net_prem'],2,{'net_prem':'25 Gbps is not necessary for single-node genomics. The extra cost is unjustified unless running distributed cluster jobs across multiple VMs.'}),
+    },
+  },
+  {
+    id:'website', emoji:'🌐', color:'#107c10',
+    title:'Low-Budget Static Website Hosting',
+    client:'StartupLaunch.io',
+    brief:'A bootstrapped startup wants to self-host a simple static HTML/CSS website. Traffic is under 1,000 visits/day. They need the cheapest reliable VM reachable from the internet.',
+    reqs:['🌍 Host a static HTML website','💸 Absolute lowest cost','🌐 HTTP (80) + HTTPS (443) open','🐧 Linux preferred','💾 Minimal storage needed','📡 Basic network is fine'],
+    ideal:{
+      cpu: E('cpu_b2s',
+        'B2s at ~$0.04/hr is the cheapest VM that can still handle Nginx/Apache serving a static site. Pre-built HTML files require almost no CPU — burstable credits are more than enough.',
+        'GPU or HPC VMs for a static site cost $1-3/hr, turning a $30/month bill into $720+/month. Expensive hardware sits at 0% useful utilisation 100% of the time.',
+        ['cpu_d4sv3'],1,{'cpu_d4sv3':'D4s v3 costs ~$0.19/hr — nearly 5x more expensive. For a static site with <1,000 daily visitors, 4 vCPUs sit idle 99.9% of the time.'}),
+      ram: E('ram_4',
+        'Nginx serving static files uses under 100 MB of RAM at low traffic. 4 GB gives 40x headroom — perfectly sized at the lowest possible memory cost.',
+        '64-112 GB RAM for a static site is like hiring 50 chefs to make toast. The cost is enormous and the performance benefit is zero — RAM cannot be used beyond what the software needs.',
+        ['ram_16'],2,{'ram_16':'16 GB works but the extra 12 GB sits completely idle. You pay for RAM no process uses — wasted budget for a bootstrapped startup.'}),
+      storage: E('st_ssds',
+        'Standard SSD provides enough IOPS for file serving at this traffic level. It is faster and more reliable than HDD at only slightly more cost — the sweet spot for a small website.',
+        'Ultra Disk or Premium SSD for a static site is extreme over-provisioning. You pay for 160,000 IOPS when serving HTML files requires maybe 20. The bill is 5-10x higher for nothing.',
+        ['st_hdd'],1,{'st_hdd':'HDD works technically but mechanical latency (5-10ms vs 0.5ms for SSD) means higher response times, especially when many files are requested simultaneously.'}),
+      gpu: E('gpu_none',
+        'An Nginx static file server has absolutely no use for GPU hardware. Adding even a basic T4 GPU costs $0.50-$1/hr extra — doubling or tripling the monthly bill for zero benefit.',
+        'A GPU VM serving a static website is the most wasteful configuration possible. The GPU idles at 0% utilisation 100% of the time, costing hundreds per month for nothing.',
+        [],0,{}),
+      os: E('os_ubuntu',
+        'Ubuntu 22.04 LTS has excellent Azure docs, snap packages for Certbot (free HTTPS), and massive community support — the easiest Linux for a startup to self-manage.',
+        'Windows Server is 3-4x more expensive (licensing), requires more RAM, and uses IIS instead of free Nginx — adding cost and complexity for no benefit to a static site.',
+        ['os_debian'],2,{'os_debian':'Debian 11 is equally capable and even leaner. The slight trade-off is fewer tutorials and a smaller package ecosystem for a non-expert managing it.'}),
+      sg: E('sg_web',
+        'Port 80 (HTTP) and 443 (HTTPS) are the only ports needed. Visitors can reach the site, Certbot can renew SSL, and no unnecessary services are exposed to the internet.',
+        'Opening SSH publicly exposes the server to brute-force attacks. No-inbound blocks visitors entirely — the website would be unreachable from the internet.',
+        [],0,{}),
+      network: E('net_basic',
+        '1 Gbps is 125 MB/s — enough to serve thousands of static pages per second. A static site rarely saturates even 100 Mbps. Basic NIC is free and perfectly adequate.',
+        '25 Gbps Premium networking for a startup static site is absurd. The extra cost is hundreds per year for a pipe that will never carry more than a few Mbps.',
+        ['net_std'],2,{'net_std':'10 Gbps is fine technically but costs extra for hardware the website will never use. A static site with 1,000 daily visitors uses <1% of a 1 Gbps link.'}),
+    },
+  },
+  {
+    id:'ecommerce', emoji:'🛒', color:'#0078d4',
+    title:'High-Traffic E-Commerce Database Server',
+    client:'MegaMart Online',
+    brief:'An online retailer runs a PostgreSQL database backing their platform with 50,000+ daily active users. The DB needs high concurrent queries, fast transactional I/O, and must be completely isolated from the public internet.',
+    reqs:['🗄️ PostgreSQL for 50k+ users','⚡ High concurrent transactions','🧠 Large working set in RAM','🔒 Zero public internet exposure','🐧 Linux only','🛡️ DB ports from app tier only'],
+    ideal:{
+      cpu: E('cpu_e16',
+        'E16s v3 (memory-optimised, 16 vCPUs) keeps PostgreSQL working sets in RAM and provides enough cores for parallel query execution and connection pooling at high concurrency.',
+        'Burstable B-series CPUs throttle under sustained database load. Under sustained concurrent connections, it throttles to 20% CPU, causing query timeouts and unresponsive checkout pages.',
+        ['cpu_d4sv3'],1,{'cpu_d4sv3':'D4s v3 with 4 cores bottlenecks at high concurrency — each parallel query consumes a core, so 4 cores cap throughput under heavy load.'}),
+      ram: E('ram_64',
+        'With 64 GB, PostgreSQL can cache the entire hot working set of an e-commerce catalogue in memory. shared_buffers = 16 GB, effective_cache_size = 48 GB — most queries become disk-free.',
+        'With only 4 GB RAM, almost every query hits disk. PostgreSQL becomes a disk I/O bottleneck and users experience 5-10 second page loads at peak traffic.',
+        ['ram_32','ram_112','ram_256'],1,
+        {'ram_32':'32 GB gives only 8 GB shared_buffers — insufficient for a large product catalogue. Frequently-accessed product pages still hit disk, increasing query latency by 5-50x.',
+         'ram_112':'112 GB works perfectly well for PostgreSQL, but it costs 75% more than 64 GB with no measurable query speed improvement for a typical e-commerce catalogue.',
+         'ram_256':'256 GB is extreme over-provisioning for a PostgreSQL database of this scale. You pay for 192 GB of RAM that PostgreSQL cannot use — 4x the cost with zero benefit.'},
+        {'ram_112':2,'ram_256':1}),
+      storage: E('st_ssdp',
+        'Premium SSD (16,000 IOPS) comfortably handles the random read/write pattern of a transactional database. It is the recommended storage class for Azure production databases.',
+        'Standard HDD (500 IOPS) completely strangles a transactional database. At 500 IOPS you can process maybe 50-100 transactions/sec before the queue backs up — checkout failures at peak traffic.',
+        ['st_ultra'],2,{'st_ultra':'Ultra Disk works but is massive overkill for PostgreSQL OLTP. The extra cost (3-4x more) is not justified unless running extremely high-frequency trading.'}),
+      gpu: E('gpu_none',
+        'PostgreSQL is a relational database engine — it runs entirely on CPU and memory. No GPU driver, CUDA code, or hardware-accelerated computation is involved at any stage.',
+        'Adding a GPU to a database VM costs $500-$2,000/month for hardware the DB engine cannot utilise. It adds heat, power draw, driver maintenance, and cost with absolute zero benefit.',
+        [],0,{}),
+      os: E('os_ubuntu',
+        'Ubuntu 22.04 LTS has the most current PostgreSQL packages, excellent Azure storage driver support, and a huge DBA community documenting Ubuntu-specific tuning. Azure docs use Ubuntu.',
+        'Windows Server for PostgreSQL adds licensing overhead and most performance tuning guides are Linux-specific. Performance can be 10-30% lower on Windows due to different I/O scheduling.',
+        ['os_rhel','os_debian'],2,{'os_rhel':'RHEL 9 is enterprise-grade but adds per-VM licensing cost and requires specialised admin knowledge.','os_debian':'Debian works but PostgreSQL version packaging sometimes lags, requiring third-party repos for the latest PostgreSQL 16.'}),
+      sg: E('sg_db',
+        'The DB Security Group exposes only port 5432 to the private app subnet — not the public internet. Application servers can reach the database; no external traffic can.',
+        'Opening HTTP/443 or RDP on a database VM exposes a critical data store to the internet. Attackers scan for exposed database ports — an unprotected PostgreSQL server is compromised within minutes.',
+        ['sg_strict'],1,{'sg_strict':'Strict (no inbound at all) would also block the application servers, making the database unreachable. You need selective access from the app tier, not a total block.'}),
+      network: E('net_std',
+        '10 Gbps accelerated networking with SR-IOV reduces TCP overhead for high-concurrency connection handling — measurably important when thousands of tiny packets are exchanged per second.',
+        '1 Gbps Basic adds latency to each database round-trip. At 50,000 users with multiple DB queries per page view, a 1ms extra latency per query multiplied by millions of daily queries degrades UX noticeably.',
+        ['net_prem'],2,{'net_prem':'25 Gbps Premium provides more bandwidth than a single-node PostgreSQL DB can saturate. Extra cost is not justified unless streaming large BLOBs or running a distributed cluster.'}),
+    },
+  },
+  {
+    id:'aiml', emoji:'🤖', color:'#8b5cf6',
+    title:'AI / Machine Learning Training Lab',
+    client:'DeepThink AI Research',
+    brief:'An AI research team needs to train large transformer models (50B+ parameters) using PyTorch on Linux. They need the highest GPU memory, fast checkpointing, and 24/7 training runs.',
+    reqs:['🧠 Train 50B+ parameter models','🎮 Maximum GPU memory','⚡ Fast model checkpointing to disk','🐧 Linux with CUDA','🔐 SSH access for researchers','📡 Fast network for gradient sync'],
+    ideal:{
+      cpu: E('cpu_nd96',
+        'ND96asr packs 8x NVIDIA A100 80 GB GPUs with NVLink for ultra-fast GPU-to-GPU communication. Only this VM on Azure can hold a 50B+ model across GPUs without extreme fragmentation.',
+        'General-purpose or compute-optimised CPUs have no GPU at all. Training a large language model on CPU would take literally years instead of weeks — computationally infeasible.',
+        ['cpu_nc6'],1,{'cpu_nc6':'NC6s v3 has a single V100 with 32 GB VRAM. A 50B parameter model requires ~100 GB VRAM minimum — one V100 cannot fit even a single transformer layer without extreme sharding.'}),
+      ram: E('ram_256',
+        '256 GB holds model weights, optimizer states, and gradient buffers in CPU RAM during gradient checkpointing — essential when GPU VRAM overflows and tensors are offloaded to host memory.',
+        '4-32 GB causes constant CPU out-of-memory errors. PyTorch offloads GPU tensors to CPU RAM during gradient accumulation — insufficient RAM crashes training mid-epoch, losing hours of progress.',
+        ['ram_112'],1,{'ram_112':'112 GB risks OOM errors when using ZeRO optimizer stages that offload optimizer states to CPU RAM. 256 GB provides a safe buffer for large-batch training.'}),
+      storage: E('st_ssdp',
+        'Premium SSD writes a 100 GB model checkpoint in ~6 seconds vs HDD taking 13 minutes. Fast checkpointing means you save more frequently and lose less progress if training crashes.',
+        'Standard HDD for ML checkpointing means each model save takes 10-15 minutes for a large model. Slow checkpointing forces you to save less frequently — a crash can mean losing many hours of training.',
+        ['st_ultra'],2,{'st_ultra':'Ultra Disk is faster but the extra cost is rarely justified for checkpoint writing, which is periodic. Premium SSD checkpointing is fast enough that GPU training never stalls.'}),
+      gpu: E('gpu_a100',
+        'NVIDIA A100 (80 GB HBM2e) is the gold standard for LLM training. Its TF32 tensor cores deliver 312 TFLOPS and it natively supports BFloat16 — the precision format used in GPT and LLaMA training.',
+        'No GPU for LLM training means pure CPU compute. Training GPT-3 (175B params) on CPU would take an estimated 355 years instead of ~30 days on A100s. It is computationally impossible.',
+        ['gpu_v100'],1,{'gpu_v100':'V100 (32 GB VRAM) can train smaller models but a 50B model requires extreme tensor parallelism across many V100s. A100 80 GB holds far larger model shards with less communication overhead.'}),
+      os: E('os_ubuntu',
+        'Ubuntu 22.04 LTS is the reference platform for CUDA toolkit, cuDNN, PyTorch, and TensorFlow. NVIDIA Docker containers, NCCL, and Fabric Manager all list Ubuntu as their primary supported OS.',
+        'Windows does not support NCCL (NVIDIA Collective Communications Library), which is required for multi-GPU gradient synchronisation. PyTorch distributed training on Windows is limited and poorly supported.',
+        [],0,{}),
+      sg: E('sg_ssh',
+        'Researchers connect via SSH with key auth to submit training jobs, monitor GPU utilisation, and pull logs. No web service runs on a training VM — SSH-only is sufficient and maximally secure.',
+        'Opening web or RDP ports on a GPU training VM adds an attack surface with no benefit. A compromised ML VM leaks proprietary model weights and research data worth millions.',
+        [],0,{}),
+      network: E('net_prem',
+        '25 Gbps Premium with SR-IOV is needed for fast gradient synchronisation between cluster nodes (all-reduce operations), fast dataset streaming from Azure Blob, and uploading 100 GB+ checkpoints.',
+        '1 Gbps Basic for a distributed AI training cluster creates a severe gradient synchronisation bottleneck. All-reduce operations at 125 MB/s when GPUs produce GB/s of gradients stalls every backward pass.',
+        ['net_std'],1,{'net_std':'10 Gbps works for single-node training but becomes a bottleneck in distributed multi-node training where gradient communication between nodes dominates training time.'}),
+    },
+  },
+  {
+    id:'mobileapi', emoji:'📱', color:'#0891b2',
+    title:'Mobile App Backend REST API',
+    client:'FitTrack App',
+    brief:'A fitness startup needs a VM to host their Node.js REST API for 10,000 mobile users handling auth, user data reads, and push notifications. Moderate traffic with morning/evening peaks.',
+    reqs:['📱 Serve 10,000 mobile users','🌐 HTTPS REST API endpoint','🔄 Moderate, bursty traffic','💰 Cost-effective but scalable','🐧 Linux + Node.js','🔐 HTTPS only, SSH restricted'],
+    ideal:{
+      cpu: E('cpu_d4sv3',
+        'D4s v3 (4 vCPUs) is the general-purpose sweet spot for Node.js. With PM2 cluster mode, it scales across all 4 cores. 4 vCPUs handle typical API concurrency without over-provisioning.',
+        'GPU or HPC VMs for a REST API add enormous cost for zero benefit. A Node.js API never uses GPU compute — you pay for idle hardware while API latency stays exactly the same.',
+        ['cpu_b2s','cpu_f8sv2'],1,{'cpu_b2s':'B2s throttles during sustained morning/evening peak traffic — burstable CPUs drop to 20% performance under load, causing API response time spikes.','cpu_f8sv2':'F8s v2 (8 vCPUs) is compute-optimised for pure CPU tasks. A Node.js API is I/O-bound, not CPU-bound — extra cores sit idle, wasting ~$0.15/hr.'}),
+      ram: E('ram_16',
+        'Node.js with PM2 cluster (4 workers) uses 200-400 MB RAM per worker. 16 GB gives headroom for OS, runtime, connection pools, caching layers, and future scaling without waste.',
+        '112-256 GB RAM for a Node.js API is extreme over-provisioning. The application never uses more than 2-4 GB regardless of RAM installed — the rest costs money and sits idle.',
+        ['ram_32','ram_4'],1,{'ram_32':'32 GB is double what a Node.js API needs. The OS and processes never use more than 2-4 GB under normal load — the extra RAM costs money with no speed benefit.','ram_4':'4 GB is borderline. With 4 Node.js workers + OS + cache, you risk OOM pressure during peak traffic, causing the OS to kill worker processes.'}),
+      storage: E('st_ssds',
+        'Standard SSD (3,000 IOPS) is more than adequate for a stateless REST API that does minimal disk I/O beyond logging. A stateless API reads from a database over the network, not local disk.',
+        'Ultra Disk (160,000 IOPS) for a REST API that barely touches disk wastes $1-2/hr. Disk performance is not the bottleneck for an API server — network latency to the database is.',
+        ['st_ssdp'],2,{'st_ssdp':'Premium SSD is over-provisioned for this use case. You pay 2x more for 16,000 IOPS when the API uses less than 100 — entirely wasted spend.'}),
+      gpu: E('gpu_none',
+        'A Node.js REST API handles JSON processing, authentication, DB queries, and HTTP routing — all CPU/memory tasks. No compute kernel in a typical API can offload to GPU.',
+        'Adding a GPU to an API server adds $300-2,000/month in cost for 0% GPU utilisation. The Node.js runtime does not interface with CUDA — it is purely wasted budget.',
+        [],0,{}),
+      os: E('os_ubuntu',
+        'Ubuntu 22.04 LTS has official Node.js LTS apt repositories, PM2 production process manager packages, and excellent Azure deployment tooling. Most Node.js guides target Ubuntu.',
+        'Windows Server adds licensing overhead, different path conventions, and most Node.js DevOps automation scripts (bash, systemd) require rewriting for PowerShell — unnecessary complexity.',
+        ['os_debian'],2,{'os_debian':'Debian 11 is lean and works well for Node.js. Slightly fewer pre-packaged tooling options and a smaller community knowledge base for troubleshooting.'}),
+      sg: E('sg_web',
+        'Mobile apps communicate exclusively over HTTPS (port 443). Port 80 can redirect to HTTPS. SSH should be restricted to a management IP — this gives the right balance of access and security.',
+        'SSH-only blocks all mobile app traffic — users cannot reach the API. No-inbound blocks everything. Only opening web ports 80/443 gives the right balance of accessibility and security.',
+        [],0,{}),
+      network: E('net_std',
+        '10 Gbps accelerated networking gives each API request lower latency to the database VM and faster response delivery to mobile clients — directly improving API response time percentiles.',
+        '25 Gbps Premium is over-specified for a 10,000-user mobile API. The extra monthly cost is not justified — the API will never saturate even a 1 Gbps link at this traffic level.',
+        ['net_basic'],2,{'net_basic':'1 Gbps lacks SR-IOV, meaning higher CPU overhead per packet, reducing effective API throughput under load compared to accelerated networking.'}),
+    },
+  },
+];
+
+const ACHIEVS = [
+  {id:'first',   ico:'🚀',name:'First Deploy',    desc:'Deployed your first VM'},
+  {id:'perfect', ico:'💎',name:'Perfect Round',   desc:'3 stars on all 7 slots'},
+  {id:'ace',     ico:'🏆',name:'Azure Ace',       desc:'Completed all 6 scenarios'},
+  {id:'xp200',   ico:'⚡',name:'XP Powerhouse',  desc:'Earned 200+ XP total'},
+  {id:'xp500',   ico:'🔥',name:'XP Inferno',     desc:'Earned 500+ XP total'},
+  {id:'noGPU',   ico:'💸',name:'Budget Master',  desc:'Chose No GPU correctly'},
+  {id:'all7ok',  ico:'🎯',name:'Sharp Shooter',  desc:'All 7 slots correct in one round'},
+  {id:'half',    ico:'🌟',name:'Halfway Hero',   desc:'Completed 3 scenarios'},
+];
+
+/* ── STATE ──────────────────────────────────── */
+const ST = {
+  round:0, phase:'build',
+  placed:{}, sel:null, vmName:'',
+  scores:[], details:[],
+  xp:0, level:1, ach: new Set(),
+};
+let activeTab = 'cpu';
+
+/* ── UTILS ──────────────────────────────────── */
+function getComp(id) {
+  for (const arr of Object.values(COMPS))
+    for (const c of arr) if (c.id === id) return c;
+  return null;
+}
+function getCat(id) {
+  for (const [k, arr] of Object.entries(COMPS))
+    if (arr.find(c => c.id === id)) return k;
+  return null;
+}
+function starsHTML(n, max) {
+  max = max || 3;
+  var h = '';
+  for (var i = 0; i < max; i++)
+    h += '<span class="' + (i < n ? 'star-lit' : 'star-dim') + '">★</span>';
+  return h;
+}
+function hexRGB(h) {
+  return parseInt(h.slice(1,3),16)+','+parseInt(h.slice(3,5),16)+','+parseInt(h.slice(5,7),16);
+}
+function el(id) { return document.getElementById(id); }
+
+function addXP(n) {
+  ST.xp += n; refreshHdr();
+  // float
+  var f = document.createElement('div');
+  f.textContent = '+' + n + ' XP';
+  f.style.cssText = 'position:fixed;top:54px;right:80px;color:#fbbf24;font-weight:700;font-size:.9rem;pointer-events:none;z-index:9999;animation:fadeUp .85s ease forwards;';
+  el('xpBox').appendChild(f);
+  setTimeout(function(){f.remove();}, 900);
+  if (ST.xp >= 200) unlockAch('xp200');
+  if (ST.xp >= 500) unlockAch('xp500');
+}
+
+function refreshHdr() {
+  var lvls = [0,80,200,400,800];
+  var lv = 1;
+  for (var i = 1; i < lvls.length; i++) if (ST.xp >= lvls[i]) lv = i+1;
+  ST.level = lv;
+  el('hXP').textContent  = '⚡ ' + ST.xp + ' XP';
+  el('hLvl').textContent = '🏅 Lv ' + lv;
+  el('hQ').textContent   = ST.phase === 'summary' ? 'Done!' : 'Q ' + (ST.round+1) + '/6';
+}
+
+function unlockAch(id) {
+  if (ST.ach.has(id)) return;
+  ST.ach.add(id);
+  var a = ACHIEVS.find(function(x){return x.id===id;}); if (!a) return;
+  var p = document.createElement('div');
+  p.className = 'ach-pop';
+  p.innerHTML = '<div style="display:flex;align-items:center;gap:12px">'
+    + '<div style="font-size:2rem">' + a.ico + '</div>'
+    + '<div>'
+      + '<div style="color:#fbbf24;font-weight:700;font-size:.76rem">Achievement Unlocked!</div>'
+      + '<div style="font-weight:700;font-size:.88rem">' + a.name + '</div>'
+      + '<div style="color:var(--muted-foreground);font-size:.7rem">' + a.desc + '</div>'
+    + '</div></div>';
+  el('achBox').appendChild(p);
+  setTimeout(function(){
+    p.style.transition='all .4s ease';p.style.opacity='0';p.style.transform='translateX(60px)';
+    setTimeout(function(){p.remove();},400);
+  },3000);
+}
+
+function confetti() {
+  var cols = ['#0078d4','#fbbf24','#3fb950','#ff8c00','#c678dd','#38bdf8'];
+  for (var i = 0; i < 80; i++) {
+    var p = document.createElement('div');
+    p.className = 'confetti-p';
+    p.style.cssText = 'left:'+Math.random()*100+'vw;background:'+cols[Math.floor(Math.random()*cols.length)]
+      +';width:'+(5+Math.random()*8)+'px;height:'+(5+Math.random()*8)+'px'
+      +';animation-duration:'+(1.4+Math.random()*2)+'s;animation-delay:'+(Math.random()*.5)+'s;';
+    el('cfBox').appendChild(p);
+    setTimeout(function(){p.remove();},4000);
+  }
+}
+
+/* ── SCORING ─────────────────────────────────── */
+function scoreSlot(sc, key, pid) {
+  if (!pid) return {stars:0, cls:'bad', fb:'Nothing placed here'};
+  var ideal = sc.ideal[key];
+  if (pid === ideal.id) return {stars:3, cls:'ok', fb:'Perfect choice!'};
+  if (ideal.partial.indexOf(pid) !== -1) {
+    // Use per-item star override if available, else fall back to default ps
+    var pStars = (ideal.partialPS && ideal.partialPS[pid] !== undefined) ? ideal.partialPS[pid] : ideal.ps;
+    return {stars:pStars, cls:'part', fb:'Good but not optimal'};
+  }
+  return {stars:0, cls:'bad', fb:'Wrong component for this workload'};
+}
+function calcRound(sc) {
+  var det = {}, total = 0;
+  for (var i = 0; i < SLOTS.length; i++) {
+    var sl = SLOTS[i];
+    var r = scoreSlot(sc, sl.key, ST.placed[sl.key]);
+    det[sl.key] = r; total += r.stars;
+  }
+  return {det:det, total:total, max:SLOTS.length*3};
+}
+
+/* ── SHELF ───────────────────────────────────── */
+var CAT_LBL = {cpu:'⚙️ CPU', ram:'🧠 RAM', storage:'💽 Disk', gpu:'🎮 GPU', os:'💿 OS', sg:'🛡️ SG', network:'📡 Net'};
+
+function shelfItemsHtml(cat) {
+  var comps = COMPS[cat];
+  var h = '';
+  for (var i = 0; i < comps.length; i++) {
+    var c = comps[i];
+    var used = Object.values(ST.placed).indexOf(c.id) !== -1;
+    var sel  = ST.sel === c.id;
+    h += '<div id="ci_'+c.id+'" class="comp-card'+(used?' used':'')+(sel?' selected':'')+'" '
+      + 'data-cid="'+c.id+'" onclick="selComp(\''+c.id+'\')" style="margin-bottom:6px">'
+      + '<span style="font-size:1.3rem">'+c.ico+'</span>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:600;font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.name+'</div>'
+        + '<div style="font-size:.68rem;color:var(--muted-foreground)">'+c.sub+'</div>'
+      + '</div>'
+      + '<div style="position:relative" title="'+c.tip+'">'
+        + '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--muted-foreground)">'
+          + '<circle cx="12" cy="12" r="10"/><path d="M12 6v2M12 10v8" stroke="white" stroke-width="2.5"/>'
+        + '</svg>'
+      + '</div>'
+    + '</div>';
+  }
+  return h;
+}
+
+function switchTab(cat) {
+  activeTab = cat;
+  var tabs = document.querySelectorAll('.cat-tab');
+  for (var i = 0; i < tabs.length; i++)
+    tabs[i].classList.toggle('active', tabs[i].dataset.cat === cat);
+  el('shelfItems').innerHTML = shelfItemsHtml(cat);
+}
+
+/* ── SLOT HTML ───────────────────────────────── */
+function slotHTML(sl) {
+  var pid = ST.placed[sl.key];
+  var comp = pid ? getComp(pid) : null;
+  var filledCls = pid ? ' slot-filled' : '';
+  var activeCls = (ST.sel && getCat(ST.sel) === sl.key && !pid) ? ' slot-active' : '';
+  var inner = '';
+  if (pid && comp) {
+    inner = '<div class="remove-x" onclick="event.stopPropagation();removeSlot(\''+sl.key+'\')">✕</div>'
+      + '<span style="font-size:1.25rem">'+comp.ico+'</span>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:600;font-size:.77rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+comp.name+'</div>'
+        + '<div style="font-size:.63rem;color:var(--muted-foreground)">'+comp.sub+'</div>'
+      + '</div>'
+      + '<span class="pill pop-in" style="background:rgba(0,120,212,.15);color:#0078d4;font-size:.6rem">✓ Set</span>';
+  } else {
+    inner = '<span style="color:var(--muted-foreground);font-size:.7rem;font-style:italic">② Click here to place</span>';
+  }
+  return '<div>'
+    + '<div style="font-size:.65rem;font-weight:600;color:var(--muted-foreground);margin-bottom:2px">'+sl.ico+' '+sl.label+'</div>'
+    + '<div id="slot_'+sl.key+'" class="drop-slot'+filledCls+activeCls+'" onclick="clickSlot(\''+sl.key+'\')">'
+      + inner
+    + '</div>'
+  + '</div>';
+}
+
+/* ── CLICK-TO-SELECT / CLICK-TO-PLACE ───────── */
+function selComp(id) {
+  if (ST.sel === id) { ST.sel = null; } else { ST.sel = id; }
+  refreshShelf();
+  refreshSlotHighlights();
+  refreshSelStrip();
+}
+
+function clickSlot(key) {
+  if (!ST.sel) { if (ST.placed[key]) removeSlot(key); return; }
+  var cat = getCat(ST.sel);
+  if (cat !== key) {
+    var slEl = el('slot_'+key);
+    if (slEl) { slEl.classList.add('shake'); setTimeout(function(){slEl.classList.remove('shake');},330); }
+    showWarnMsg(key, cat);
+    return;
+  }
+  if (ST.placed[key]) freeComp(ST.placed[key]);
+  ST.placed[key] = ST.sel;
+  ST.sel = null;
+  refreshShelf();
+  refreshSlotHighlights();
+  refreshSelStrip();
+  var slEl = el('slot_'+key);
+  if (slEl) slEl.outerHTML = slotHTML(SLOTS.find(function(s){return s.key===key;}));
+  updateProgress();
+  updateDeployBtn();
+}
+
+function removeSlot(key) {
+  if (!ST.placed[key]) return;
+  freeComp(ST.placed[key]);
+  delete ST.placed[key];
+  var slEl = el('slot_'+key);
+  if (slEl) slEl.outerHTML = slotHTML(SLOTS.find(function(s){return s.key===key;}));
+  updateProgress();
+  updateDeployBtn();
+}
+
+function freeComp(id) {
+  for (var k in ST.placed) if (ST.placed[k]===id) delete ST.placed[k];
+  var card = el('ci_'+id);
+  if (card) card.classList.remove('used');
+}
+
+function refreshShelf() {
+  var cards = document.querySelectorAll('.comp-card');
+  for (var i = 0; i < cards.length; i++) {
+    var cid = cards[i].dataset.cid;
+    cards[i].classList.toggle('selected', cid === ST.sel);
+  }
+}
+
+function refreshSlotHighlights() {
+  var cat = ST.sel ? getCat(ST.sel) : null;
+  for (var i = 0; i < SLOTS.length; i++) {
+    var sEl = el('slot_'+SLOTS[i].key);
+    if (!sEl) continue;
+    var isTarget = cat && SLOTS[i].key === cat && !ST.placed[SLOTS[i].key];
+    sEl.classList.toggle('slot-active', !!isTarget);
+  }
+}
+
+function refreshSelStrip() {
+  var strip = el('selStrip');
+  if (!strip) return;
+  if (!ST.sel) { strip.style.display = 'none'; return; }
+  var comp = getComp(ST.sel);
+  var cat  = getCat(ST.sel);
+  var slbl = (SLOTS.find(function(s){return s.key===cat;})||{label:cat}).label;
+  strip.style.display = 'flex';
+  strip.innerHTML = '<span style="font-size:1.4rem">'+comp.ico+'</span>'
+    + '<div style="flex:1;min-width:0">'
+      + '<div style="font-weight:700;font-size:.79rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+comp.name+'</div>'
+      + '<div style="font-size:.65rem;color:var(--muted-foreground)">Now click the <strong>'+slbl+'</strong> slot</div>'
+    + '</div>'
+    + '<button onclick="ST.sel=null;refreshShelf();refreshSlotHighlights();refreshSelStrip()" '
+      + 'style="font-size:.73rem;color:#d83b01;font-weight:700;background:none;border:none;cursor:pointer">Cancel</button>';
+}
+
+function showWarnMsg(slotKey, compCat) {
+  var wEl = el('warnMsg');
+  var slbl = (SLOTS.find(function(s){return s.key===slotKey;})||{label:slotKey}).label.replace(/\(.*\)/,'').trim();
+  var clbl = {cpu:'CPU',ram:'RAM',storage:'Storage',gpu:'GPU',os:'OS',sg:'Security Group',network:'Network'}[compCat]||compCat;
+  if (wEl) {
+    wEl.textContent = '⚠ That\'s a '+clbl+' component — place it in the '+slbl+' slot!';
+    wEl.style.opacity = '1';
+    clearTimeout(wEl._t);
+    wEl._t = setTimeout(function(){wEl.style.opacity='0';},2300);
+  }
+}
+
+function updateProgress() {
+  var n = Object.keys(ST.placed).length;
+  var bar = el('buildBar'); var lbl = el('slotCnt');
+  if (bar) bar.style.width = ((n/SLOTS.length)*100)+'%';
+  if (lbl) lbl.textContent = n+'/'+SLOTS.length;
+}
+
+function updateDeployBtn() {
+  var btn = el('deployBtn'); if (!btn) return;
+  var can = Object.keys(ST.placed).length === SLOTS.length && ST.vmName.trim().length > 0;
+  btn.disabled = !can;
+  btn.style.background = can ? 'linear-gradient(135deg,#107c10,#3fb950)' : 'rgba(100,100,100,.33)';
+  btn.style.opacity    = can ? '1' : '.45';
+  btn.style.cursor     = can ? 'pointer' : 'not-allowed';
+}
+
+/* ── BUILD RENDER ────────────────────────────── */
+function renderBuild() {
+  var sc = SCENARIOS[ST.round];
+  var rgb = hexRGB(sc.color);
+
+  // scenario top bar
+  var reqsHTML = '';
+  for (var i = 0; i < sc.reqs.length && i < 4; i++) {
+    reqsHTML += '<span style="font-size:.61rem;background:rgba('+rgb+',.13);color:'+sc.color
+      +';border:1px solid '+sc.color+'44;border-radius:6px;padding:2px 6px;white-space:nowrap">'
+      +sc.reqs[i]+'</span>';
+  }
+
+  // slot grid
+  var slotsHTML = '';
+  for (var j = 0; j < SLOTS.length; j++) slotsHTML += slotHTML(SLOTS[j]);
+
+  // category tabs
+  var tabsHTML = '';
+  for (var k in CAT_LBL) {
+    tabsHTML += '<div class="cat-tab'+(k===activeTab?' active':'')+'" data-cat="'+k+'" onclick="switchTab(\''+k+'\')">'+CAT_LBL[k]+'</div>';
+  }
+
+  var nPlaced = Object.keys(ST.placed).length;
+
+  el('root').innerHTML =
+    '<div style="flex-shrink:0;padding:9px 12px;border-bottom:1px solid var(--border);'
+      +'background:linear-gradient(135deg,rgba('+rgb+',.14),rgba('+rgb+',.04))">'
+      +'<div style="display:flex;align-items:flex-start;gap:10px">'
+        +'<div style="font-size:1.8rem;line-height:1">'+sc.emoji+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:'+sc.color+'">Q'+(ST.round+1)+' of '+SCENARIOS.length+' — '+sc.client+'</div>'
+          +'<div style="font-weight:700;font-size:.9rem;line-height:1.3">'+sc.title+'</div>'
+          +'<div style="font-size:.72rem;color:var(--muted-foreground);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+sc.brief+'</div>'
+        +'</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:3px;max-width:190px;flex-shrink:0">'+reqsHTML+'</div>'
+      +'</div>'
+    +'</div>'
+
+    +'<div style="flex:1;overflow:hidden;display:flex;gap:8px;padding:8px;min-height:0">'
+
+      // LEFT: shelf
+      +'<div class="panel" style="width:265px;flex-shrink:0">'
+        +'<div class="p-head">'
+          +'<span>🗃️</span>'
+          +'<span style="font-weight:700;font-size:.82rem">Component Shelf</span>'
+          +'<span style="font-size:.63rem;color:var(--muted-foreground);margin-left:auto">① Click to select</span>'
+        +'</div>'
+        +'<div style="display:flex;gap:4px;padding:6px 8px 5px;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0">'+tabsHTML+'</div>'
+        +'<div id="selStrip" class="sel-strip" style="display:none;margin-top:8px"></div>'
+        +'<div class="p-body" id="shelfItems">'+shelfItemsHtml(activeTab)+'</div>'
+      +'</div>'
+
+      // RIGHT: rack
+      +'<div class="panel" style="flex:1;min-width:0">'
+        +'<div class="p-head">'
+          +'<span>🖥️</span>'
+          +'<span style="font-weight:700;font-size:.82rem">VM Build Rack</span>'
+          +'<div style="flex:1;margin:0 8px"><div class="meter"><div id="buildBar" class="mfill" style="width:'+((nPlaced/SLOTS.length)*100)+'%;background:linear-gradient(90deg,#0078d4,#38bdf8)"></div></div></div>'
+          +'<span id="slotCnt" style="font-size:.7rem;color:var(--muted-foreground);white-space:nowrap">'+nPlaced+'/'+SLOTS.length+'</span>'
+        +'</div>'
+        +'<div id="warnMsg" style="font-size:.69rem;color:#d83b01;text-align:center;padding:3px 10px;background:rgba(216,59,1,.07);opacity:0;transition:opacity .3s;flex-shrink:0"></div>'
+        +'<div class="p-body" style="display:flex;flex-direction:column;gap:0;padding-top:8px">'
+          +'<div style="margin-bottom:8px">'
+            +'<div style="font-size:.67rem;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">🏷️ VM Name</div>'
+            +'<input type="text" class="vm-inp" placeholder="e.g. '+sc.id+'-vm-01" maxlength="20" value="'+ST.vmName+'" '
+              +'oninput="ST.vmName=this.value.trim();updateDeployBtn()" />'
+          +'</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1">'+slotsHTML+'</div>'
+          +'<div style="margin-top:8px;flex-shrink:0">'
+            +'<button id="deployBtn" onclick="startDeploy()" disabled '
+              +'style="width:100%;padding:10px;border-radius:12px;font-weight:700;font-size:.86rem;color:#fff;border:none;'
+              +'background:rgba(100,100,100,.33);opacity:.45;cursor:not-allowed;transition:all .2s">🚀 Deploy VM</button>'
+            +'<div style="font-size:.63rem;text-align:center;color:var(--muted-foreground);margin-top:3px">Fill all 7 slots + give the VM a name</div>'
+          +'</div>'
+        +'</div>'
+      +'</div>'
+
+    +'</div>';
+}
+
+/* ── DEPLOY TERMINAL ─────────────────────────── */
+var DEPLOY_LOG = [
+  [300, 't-head','▶  Submitting ARM template…'],
+  [800, 't-dim', '   Authenticating service principal…'],
+  [1300,'t-ok',  '   ✓ Authentication OK'],
+  [1800,'t-dim', '   Validating configuration schema…'],
+  [2300,'t-ok',  '   ✓ Template validation passed'],
+  [2800,'t-dim', '   Provisioning VNet & Subnet…'],
+  [3600,'t-ok',  '   ✓ VNet ready (10.0.0.0/16)'],
+  [4200,'t-dim', '   Allocating Public IP address…'],
+  [4900,'t-ok',  '   ✓ IP: 20.45.87.133 assigned'],
+  [5500,'t-dim', '   Applying NSG inbound rules…'],
+  [6200,'t-ok',  '   ✓ NSG configured'],
+  [6800,'t-dim', '   Creating Managed OS Disk…'],
+  [8000,'t-ok',  '   ✓ Disk provisioned'],
+  [8600,'t-dim', '   Deploying VM compute node…'],
+  [9800,'t-warn','   ⚠  Scheduling across fault domains…'],
+  [11000,'t-ok', '   ✓ Compute allocated'],
+  [11600,'t-dim','   Installing Azure Monitor extensions…'],
+  [12400,'t-ok', '   ✓ Extensions installed'],
+  [13000,'t-head','🎉  VM is Running!'],
+];
+
+function startDeploy() {
+  if (Object.keys(ST.placed).length < SLOTS.length || !ST.vmName.trim()) return;
+  var sc = SCENARIOS[ST.round];
+  var modal = document.createElement('div');
+  modal.id = 'depModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:8000;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML =
+    '<div class="fade-up" style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;width:min(480px,94vw)">'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+        +'<div class="blink" style="font-size:2rem">🚀</div>'
+        +'<div>'
+          +'<div style="font-weight:700;font-size:1rem">Deploying <span style="color:#0078d4">'+ST.vmName+'</span></div>'
+          +'<div style="font-size:.72rem;color:var(--muted-foreground)">'+sc.client+' · East US</div>'
+        +'</div>'
+      +'</div>'
+      +'<div class="terminal" id="termLog"></div>'
+      +'<div style="margin-top:10px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:.71rem;color:var(--muted-foreground);margin-bottom:4px">'
+          +'<span>Progress</span><span id="depPct">0%</span>'
+        +'</div>'
+        +'<div class="meter"><div id="depBar" class="mfill" style="width:0%;background:linear-gradient(90deg,#107c10,#3fb950)"></div></div>'
+      +'</div>'
+      +'<div id="depIcons" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;font-size:1.2rem"></div>'
+    +'</div>';
+  document.body.appendChild(modal);
+
+  var term = el('termLog');
+  var icons = ['🔌','🌐','🔒','💿','🖥️','📊','🎉'];
+  var iIdx = 0;
+  var total = DEPLOY_LOG.length;
+
+  DEPLOY_LOG.forEach(function(entry, i) {
+    setTimeout(function() {
+      var d = document.createElement('div');
+      d.className = entry[1]; d.textContent = entry[2];
+      term.appendChild(d); term.scrollTop = 9999;
+      var pct = Math.round(((i+1)/total)*100);
+      var db = el('depBar'); if (db) db.style.width = pct+'%';
+      var dp = el('depPct'); if (dp) dp.textContent = pct+'%';
+      if (i%3===0 && iIdx<icons.length) {
+        var sp = document.createElement('span');
+        sp.className = 'pop-in'; sp.textContent = icons[iIdx++];
+        var di = el('depIcons'); if (di) di.appendChild(sp);
+      }
+      if (i === total-1) setTimeout(function(){modal.remove(); doReview();},700);
+    }, entry[0]);
+  });
+}
+
+/* ── REVIEW ──────────────────────────────────── */
+function doReview() {
+  ST.phase = 'review';
+  var sc = SCENARIOS[ST.round];
+  var res = calcRound(sc);
+  ST.details.push(res.det);
+  ST.scores.push(res.total);
+  addXP(res.total * 3);
+  if (ST.round === 0) unlockAch('first');
+  if (Object.values(res.det).every(function(d){return d.stars===3;})) unlockAch('perfect');
+  if (Object.values(res.det).filter(function(d){return d.stars===3;}).length===7) unlockAch('all7ok');
+  var sc2 = sc; // for closure
+  if ((sc2.id==='hpc'||sc2.id==='website'||sc2.id==='ecommerce'||sc2.id==='mobileapi') && ST.placed['gpu']==='gpu_none') unlockAch('noGPU');
+  if (ST.round === 2) unlockAch('half');
+  if (ST.round === SCENARIOS.length-1) unlockAch('ace');
+  renderReview();
+}
+
+function expHTML(sc, sl, d) {
+  var pid = ST.placed[sl.key];
+  var ideal = sc.ideal[sl.key];
+  var pc = pid ? getComp(pid) : null;
+  var ic = getComp(ideal.id);
+
+  if (d.cls === 'ok') {
+    return '<div class="exp-box exp-ok">'
+      +'<div style="font-weight:700;color:#3fb950;font-size:.67rem;margin-bottom:3px">✅ Why this is perfect</div>'
+      +ideal.why
+    +'</div>';
+  }
+  if (d.cls === 'part') {
+    var pNote = (ideal.partialWhy && pid && ideal.partialWhy[pid]) ? ideal.partialWhy[pid] : 'This choice works but is not fully optimal for this specific workload.';
+    return '<div class="exp-box exp-part">'
+      +'<div style="font-weight:700;color:#fb923c;font-size:.67rem;margin-bottom:3px">⚡ Why it\'s not fully optimal</div>'
+      +pNote
+      +'<div style="margin-top:7px;font-weight:700;color:#3fb950;font-size:.67rem;margin-bottom:3px">✅ What '+ic.name+' would do instead</div>'
+      +ideal.why
+    +'</div>';
+  }
+  // bad / nothing
+  var wNote = pc ? ideal.wrongWhy : 'No component was placed in this slot — it is required for VM functionality.';
+  var pcName = pc ? pc.name : 'nothing';
+  return '<div class="exp-box exp-bad">'
+    +'<div style="font-weight:700;color:#f87171;font-size:.67rem;margin-bottom:3px">❌ Why '+pcName+' is wrong here</div>'
+    +wNote
+    +'<div style="margin-top:7px;font-weight:700;color:#3fb950;font-size:.67rem;margin-bottom:3px">✅ Correct choice: '+ic.ico+' '+ic.name+'</div>'
+    +ideal.why
+  +'</div>';
+}
+
+function toggleExp(id) {
+  var b = el('expBody_'+id);
+  var a = el('expArrow_'+id);
+  if (!b) return;
+  var open = b.style.display === 'block';
+  b.style.display = open ? 'none' : 'block';
+  if (a) a.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function renderReview() {
+  var sc = SCENARIOS[ST.round];
+  var det = ST.details[ST.round];
+  var total = ST.scores[ST.round];
+  var max = SLOTS.length * 3;
+  var pct = Math.round((total/max)*100);
+  var grade = pct===100?'💎 Perfect!':pct>=70?'⭐ Great Work':pct>=40?'👍 Good Try':'📚 Keep Learning';
+  var gBg = pct===100?'linear-gradient(90deg,#107c10,#3fb950)':pct>=70?'linear-gradient(90deg,#0078d4,#38bdf8)':'linear-gradient(90deg,#ff8c00,#fbbf24)';
+  var rgb = hexRGB(sc.color);
+
+  var slotsDetail = '';
+  for (var i = 0; i < SLOTS.length; i++) {
+    var sl = SLOTS[i];
+    var d  = det[sl.key];
+    var pid = ST.placed[sl.key];
+    var pc = pid ? getComp(pid) : null;
+    var ic = getComp(sc.ideal[sl.key].id);
+    var bg = d.cls==='ok'?'rgba(16,124,16,.06)':d.cls==='part'?'rgba(255,140,0,.06)':'rgba(216,59,1,.06)';
+    var bc = d.cls==='ok'?'rgba(16,124,16,.3)':d.cls==='part'?'rgba(255,140,0,.3)':'rgba(216,59,1,.3)';
+    var pcName = pc ? pc.ico+' '+pc.name : '— Nothing placed';
+    var idealNote = d.cls!=='ok' ? '<span style="font-size:.66rem;color:var(--muted-foreground)"> → Ideal: '+ic.ico+' '+ic.name+'</span>' : '';
+    var expId = 'sl'+i;
+
+    slotsDetail +=
+      '<div style="border-radius:12px;border:1px solid '+bc+';background:'+bg+';overflow:hidden;margin-bottom:8px">'
+        +'<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer" onclick="toggleExp(\''+expId+'\')">'
+          +'<span style="font-size:1.1rem">'+sl.ico+'</span>'
+          +'<div style="flex:1;min-width:0">'
+            +'<div style="font-size:.63rem;font-weight:700;text-transform:uppercase;color:var(--muted-foreground);letter-spacing:.05em">'+sl.label+'</div>'
+            +'<div style="font-size:.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px">'+pcName+idealNote+'</div>'
+          +'</div>'
+          +'<div style="text-align:right;flex-shrink:0;margin-right:4px">'
+            +starsHTML(d.stars)
+            +'<div style="font-size:.63rem;color:var(--muted-foreground)">'+d.stars+'/3</div>'
+          +'</div>'
+          +'<div id="expArrow_'+expId+'" style="font-size:.75rem;color:var(--muted-foreground);transition:transform .25s;flex-shrink:0">▼</div>'
+        +'</div>'
+        +'<div id="expBody_'+expId+'" style="display:none;padding:0 12px 10px">'+expHTML(sc,sl,d)+'</div>'
+      +'</div>';
+  }
+
+  var nextBtn = ST.round < SCENARIOS.length-1
+    ? '<button onclick="nextRound()" style="padding:12px 32px;border-radius:14px;font-weight:700;font-size:.9rem;color:#fff;border:none;cursor:pointer;background:linear-gradient(135deg,#0078d4,#38bdf8)">Next Challenge →</button>'
+    : '<button onclick="showSummary()" style="padding:12px 32px;border-radius:14px;font-weight:700;font-size:.9rem;color:#fff;border:none;cursor:pointer;background:linear-gradient(135deg,#107c10,#3fb950)">🏆 View Final Results</button>';
+
+  el('root').innerHTML =
+    '<div style="flex:1;overflow-y:auto;padding:12px">'
+      +'<div style="max-width:680px;margin:0 auto">'
+
+        // banner
+        +'<div class="fade-up" style="background:linear-gradient(135deg,rgba('+rgb+',.2),rgba('+rgb+',.05));border:2px solid '+sc.color+'66;border-radius:18px;padding:15px;text-align:center;margin-bottom:12px">'
+          +'<div style="font-size:2rem">'+sc.emoji+'</div>'
+          +'<div style="font-weight:700;font-size:1.05rem;margin-top:3px">'+sc.title+'</div>'
+          +'<div style="font-size:1.3rem;font-weight:700;margin-top:4px">'+grade+'</div>'
+          +starsHTML(Math.round(pct/100*3))
+          +'<div style="font-size:.78rem;color:var(--muted-foreground)">'+total+' / '+max+' pts · '+pct+'%</div>'
+          +'<div class="meter" style="max-width:180px;margin:8px auto 0"><div class="mfill" style="width:'+pct+'%;background:'+gBg+'"></div></div>'
+        +'</div>'
+
+        // breakdown
+        +'<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px" class="fade-up">'
+          +'<div style="font-weight:700;margin-bottom:10px;font-size:.88rem">📋 Component Analysis — click any row to expand explanation</div>'
+          +slotsDetail
+        +'</div>'
+
+        +'<div style="text-align:center;padding-bottom:12px" class="fade-up">'+nextBtn+'</div>'
+      +'</div>'
+    +'</div>';
+}
+
+/* ── SUMMARY ─────────────────────────────────── */
+function showSummary() { ST.phase='summary'; confetti(); renderSummary(); }
+
+function renderSummary() {
+  var totMax = SCENARIOS.length * SLOTS.length * 3;
+  var totSc  = ST.scores.reduce(function(a,b){return a+b;},0);
+  var pct = Math.round((totSc/totMax)*100);
+  var grade = pct===100?'💎 Azure Legend':pct>=85?'🏆 Cloud Architect':pct>=70?'⭐ Cloud Engineer':pct>=50?'👍 Junior DevOps':'📚 Keep Practicing';
+
+  var roundRows = '';
+  for (var i = 0; i < SCENARIOS.length; i++) {
+    var sc = SCENARIOS[i];
+    var s  = ST.scores[i]||0;
+    var mx = SLOTS.length*3;
+    var p  = Math.round((s/mx)*100);
+    var bg = p===100?'linear-gradient(90deg,#107c10,#3fb950)':p>=70?'linear-gradient(90deg,#0078d4,#38bdf8)':'linear-gradient(90deg,#ff8c00,#fbbf24)';
+    roundRows +=
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+        +'<span style="font-size:1.4rem">'+sc.emoji+'</span>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:.79rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sc.title+'</div>'
+          +'<div class="meter" style="margin-top:3px"><div class="mfill" style="width:'+p+'%;background:'+bg+'"></div></div>'
+        +'</div>'
+        +'<div style="text-align:right;flex-shrink:0">'+starsHTML(Math.round(p/100*3))+'<div style="font-size:.63rem;color:var(--muted-foreground)">'+s+'/'+mx+'</div></div>'
+      +'</div>';
+  }
+
+  var achCards = '';
+  for (var j = 0; j < ACHIEVS.length; j++) {
+    var a = ACHIEVS[j];
+    var earned = ST.ach.has(a.id);
+    achCards +=
+      '<div style="border-radius:10px;padding:8px;text-align:center;border:1px solid '
+        +(earned?'rgba(251,191,36,.4)':'var(--border)')+';background:'+(earned?'rgba(251,191,36,.07)':'transparent')+';opacity:'+(earned?'1':'.38')+'">'
+        +'<div style="font-size:1.5rem;margin-bottom:2px">'+(earned?a.ico:'🔒')+'</div>'
+        +'<div style="font-size:.67rem;font-weight:700">'+a.name+'</div>'
+        +'<div style="font-size:.62rem;color:var(--muted-foreground)">'+a.desc+'</div>'
+      +'</div>';
+  }
+
+  el('root').innerHTML =
+    '<div style="flex:1;overflow-y:auto;padding:12px">'
+      +'<div style="max-width:660px;margin:0 auto;display:flex;flex-direction:column;gap:12px">'
+
+        +'<div class="fade-up" style="background:linear-gradient(135deg,rgba(0,120,212,.18),rgba(0,120,212,.05));border:2px solid rgba(0,120,212,.4);border-radius:18px;padding:22px;text-align:center">'
+          +'<div style="font-size:3rem">🏆</div>'
+          +'<div style="font-weight:700;font-size:1.35rem;margin-top:6px">'+grade+'</div>'
+          +'<div style="font-size:.8rem;color:var(--muted-foreground)">All '+SCENARIOS.length+' scenarios complete</div>'
+          +'<div style="font-size:2.4rem;font-weight:700;margin-top:8px">'+pct+'%</div>'
+          +'<div style="font-size:.79rem;color:var(--muted-foreground)">'+totSc+' / '+totMax+' points</div>'
+          +'<div style="font-size:1.2rem;margin-top:4px">'+starsHTML(Math.round(pct/100*3))+'</div>'
+          +'<div style="display:flex;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap">'
+            +'<span class="pill" style="background:rgba(251,191,36,.2);color:#fbbf24;border:1px solid rgba(251,191,36,.3)">⚡ '+ST.xp+' XP</span>'
+            +'<span class="pill" style="background:rgba(139,92,246,.2);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)">🏅 Lv '+ST.level+'</span>'
+            +'<span class="pill" style="background:rgba(16,124,16,.2);color:#4ade80;border:1px solid rgba(16,124,16,.3)">🏆 '+ST.ach.size+' Achievements</span>'
+          +'</div>'
+        +'</div>'
+
+        +'<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px" class="fade-up">'
+          +'<div style="font-weight:700;margin-bottom:10px">📊 Round-by-Round Scores</div>'
+          +roundRows
+        +'</div>'
+
+        +'<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px" class="fade-up">'
+          +'<div style="font-weight:700;margin-bottom:10px">🏆 Achievements</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'+achCards+'</div>'
+        +'</div>'
+
+        +'<div style="text-align:center;padding-bottom:14px" class="fade-up">'
+          +'<button onclick="resetAll()" style="padding:12px 32px;border-radius:14px;font-weight:700;font-size:.9rem;color:#fff;border:none;cursor:pointer;background:linear-gradient(135deg,#0078d4,#38bdf8)">🔄 Play Again</button>'
+        +'</div>'
+
+      +'</div>'
+    +'</div>';
+}
+
+/* ── TRANSITIONS ─────────────────────────────── */
+function nextRound() {
+  ST.round++; ST.phase='build'; ST.placed={}; ST.vmName=''; ST.sel=null; activeTab='cpu';
+  refreshHdr(); renderBuild(); updateDeployBtn();
+}
+function resetAll() {
+  ST.round=0; ST.phase='build'; ST.placed={}; ST.sel=null; ST.vmName='';
+  ST.scores=[]; ST.details=[]; ST.xp=0; ST.level=1; ST.ach=new Set();
+  activeTab='cpu'; refreshHdr(); renderBuild(); updateDeployBtn();
+}
+
+/* ── BOOT ────────────────────────────────────── */
+try {
+  renderBuild();
+} catch(e) {
+  el('root').innerHTML = '<div style="padding:30px;text-align:center;color:red">'
+    + '<div style="font-size:2rem">⚠️</div>'
+    + '<div style="font-weight:700;margin-top:8px">Startup error: '+e.message+'</div>'
+    + '<pre style="text-align:left;margin-top:10px;font-size:.7rem">'+e.stack+'</pre>'
+    + '</div>';
+}
+</script>
+</body>
+</html>
